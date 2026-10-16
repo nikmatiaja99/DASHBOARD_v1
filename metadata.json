@@ -1,0 +1,8 @@
+{
+  "name": "BIOTA Smarthome Sales Project Dashboard",
+  "description": "Sistem Manajemen & Dashboard Penjualan Terpadu BIOTA Smarthome dengan Pipeline Kanban, Analitik Omset, Manajemen Tim, Log Audit Real-time, dan Role-Based Access Control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

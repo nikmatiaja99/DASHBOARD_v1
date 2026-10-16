@@ -58,17 +58,65 @@ interface AppContextType {
   // Theme state (Light / Dark)
   theme: 'light' | 'dark';
   toggleTheme: () => void;
+  // Clear all dummy data
+  clearAllData: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User>(INITIAL_USERS[0]); // Default Fitroh Adhiansyah (Senior Sales Executive / Super Admin)
-  const [deals, setDeals] = useState<Deal[]>(INITIAL_DEALS);
-  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
+  
+  const [deals, setDeals] = useState<Deal[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('biota_deals');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading deals from localStorage', e);
+      }
+    }
+    return INITIAL_DEALS;
+  });
+
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('biota_customers');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading customers from localStorage', e);
+      }
+    }
+    return INITIAL_CUSTOMERS;
+  });
+
   const [team, setTeam] = useState<TeamMember[]>(INITIAL_TEAM);
-  const [target, setTarget] = useState<SalesTargetSetting>(INITIAL_TARGET);
-  const [logs, setLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
+  
+  const [target, setTarget] = useState<SalesTargetSetting>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('biota_target');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading target from localStorage', e);
+      }
+    }
+    return INITIAL_TARGET;
+  });
+
+  const [logs, setLogs] = useState<AuditLog[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('biota_logs');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading logs from localStorage', e);
+      }
+    }
+    return INITIAL_AUDIT_LOGS;
+  });
+
   const [activeTab, setActiveTab] = useState<'overview' | 'pipeline' | 'customers' | 'analytics' | 'team' | 'logs'>('overview');
   const [pendingLostDeal, setPendingLostDeal] = useState<Deal | null>(null);
   const [isCheckerOpen, setIsCheckerOpen] = useState(false);
@@ -97,6 +145,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [theme]);
 
+  // Persist state to localStorage for offline / static Vercel hosting
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('biota_deals', JSON.stringify(deals));
+    }
+  }, [deals]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('biota_customers', JSON.stringify(customers));
+    }
+  }, [customers]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('biota_target', JSON.stringify(target));
+    }
+  }, [target]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('biota_logs', JSON.stringify(logs));
+    }
+  }, [logs]);
+
   const toggleTheme = useCallback(() => {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   }, []);
@@ -108,31 +181,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 3500);
   }, []);
 
-  // Sync with backend on initial mount
+  // Sync with backend on initial mount if API is reachable
   useEffect(() => {
     fetch('/api/deals')
       .then(res => res.json())
-      .then(data => { if (data.success) setDeals(data.data); })
+      .then(data => { if (data.success && Array.isArray(data.data)) setDeals(data.data); })
       .catch(() => {});
 
     fetch('/api/customers')
       .then(res => res.json())
-      .then(data => { if (data.success) setCustomers(data.data); })
+      .then(data => { if (data.success && Array.isArray(data.data)) setCustomers(data.data); })
       .catch(() => {});
 
     fetch('/api/team')
       .then(res => res.json())
-      .then(data => { if (data.success) setTeam(data.data); })
+      .then(data => { if (data.success && Array.isArray(data.data)) setTeam(data.data); })
       .catch(() => {});
 
     fetch('/api/settings/target')
       .then(res => res.json())
-      .then(data => { if (data.success) setTarget(data.data); })
+      .then(data => { if (data.success && data.data) setTarget(data.data); })
       .catch(() => {});
 
     fetch('/api/logs')
       .then(res => res.json())
-      .then(data => { if (data.success) setLogs(data.data); })
+      .then(data => { if (data.success && Array.isArray(data.data)) setLogs(data.data); })
       .catch(() => {});
   }, []);
 
@@ -630,6 +703,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return report;
   };
 
+  const clearAllData = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('biota_deals');
+        localStorage.removeItem('biota_customers');
+        localStorage.removeItem('biota_logs');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    setDeals([]);
+    setCustomers([]);
+    setLogs([]);
+    showToast('Seluruh data transaksi dan customer dummy berhasil dibersihkan (Clear)!', 'success');
+    fetch('/api/reset-data', { method: 'POST' }).catch(() => {});
+  }, [showToast]);
+
   return (
     <AppContext.Provider
       value={{
@@ -663,6 +753,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast,
         theme,
         toggleTheme,
+        clearAllData,
       }}
     >
       {children}

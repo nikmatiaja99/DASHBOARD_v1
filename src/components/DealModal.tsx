@@ -281,6 +281,11 @@ export const DealModal: React.FC<DealModalProps> = ({ isOpen, onClose, dealToEdi
                     {m.name} ({m.title})
                   </option>
                 ))}
+                {picId && !team.some(m => m.id === picId) && (
+                  <option value={picId}>
+                    {picName || 'PIC Terdahulu'} (Tidak Aktif)
+                  </option>
+                )}
               </select>
               {errors.pic && <p className="text-[10px] text-rose-600 mt-1">{errors.pic}</p>}
             </div>

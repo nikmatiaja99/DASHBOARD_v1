@@ -337,47 +337,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenTargetM
 
                 <div className="py-1">
                   <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">
-                    Ganti Peran Demonstrasi:
+                    Ganti Akun & Peran:
                   </p>
-                  <button
-                    onClick={() => {
-                      switchUser('super_admin');
-                      setIsUserMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg transition-colors text-left ${
-                      currentUser.role === 'super_admin'
-                        ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 font-bold'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <div>
-                      <div className="font-semibold">Fitroh Adhiansyah</div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Senior Sales Exec (Super Admin)</div>
-                    </div>
-                    {currentUser.role === 'super_admin' && (
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      switchUser('admin');
-                      setIsUserMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg transition-colors text-left mt-0.5 ${
-                      currentUser.role === 'admin'
-                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-900 dark:text-blue-300 font-bold'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <div>
-                      <div className="font-semibold">Rian Pratama</div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Account Executive (Staff Admin)</div>
-                    </div>
-                    {currentUser.role === 'admin' && (
-                      <span className="w-2 h-2 rounded-full bg-blue-500" />
-                    )}
-                  </button>
+                  <div className="max-h-56 overflow-y-auto space-y-1">
+                    {team.map((member) => (
+                      <button
+                        key={member.id}
+                        onClick={() => {
+                          switchUser(member.id);
+                          setIsUserMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg transition-colors text-left ${
+                          currentUser.id === member.id
+                            ? member.role === 'super_admin'
+                              ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 font-bold'
+                              : 'bg-blue-50 dark:bg-blue-950/50 text-blue-900 dark:text-blue-300 font-bold'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="font-semibold truncate">{member.name}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                            {member.title} ({member.role === 'super_admin' ? 'Super Admin' : 'Admin'})
+                          </div>
+                        </div>
+                        {currentUser.id === member.id && (
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              member.role === 'super_admin' ? 'bg-amber-500' : 'bg-blue-500'
+                            }`}
+                          />
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

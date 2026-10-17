@@ -65,7 +65,20 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User>(INITIAL_USERS[0]); // Default Fitroh Adhiansyah (Senior Sales Executive / Super Admin)
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('biota_current_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.id && parsed.name) return parsed;
+        }
+      } catch (e) {
+        console.error('Error loading current user from localStorage', e);
+      }
+    }
+    return INITIAL_USERS[0];
+  });
   
   const [deals, setDeals] = useState<Deal[]>(() => {
     if (typeof window !== 'undefined') {
@@ -191,6 +204,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [logs]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('biota_current_user', JSON.stringify(currentUser));
+    }
+  }, [currentUser]);
+
+  // Synchronize currentUser with team list:
+  // If active user profile was edited in team, sync it.
+  // If active user was deleted or is not in team (e.g. stale Rian Pratama), fallback to active Super Admin.
+  useEffect(() => {
+    if (team.length > 0) {
+      const activeInTeam = team.find(t => t.id === currentUser.id);
+      if (activeInTeam) {
+        if (
+          activeInTeam.name !== currentUser.name ||
+          activeInTeam.role !== currentUser.role ||
+          activeInTeam.title !== currentUser.title ||
+          activeInTeam.email !== currentUser.email
+        ) {
+          setCurrentUser({
+            id: activeInTeam.id,
+            name: activeInTeam.name,
+            email: activeInTeam.email,
+            role: activeInTeam.role,
+            title: activeInTeam.title,
+            phone: activeInTeam.phone,
+            status: activeInTeam.status,
+          });
+        }
+      } else {
+        // Fallback to first Super Admin or first member in team
+        const superAdmin = team.find(t => t.role === 'super_admin') || team[0];
+        setCurrentUser({
+          id: superAdmin.id,
+          name: superAdmin.name,
+          email: superAdmin.email,
+          role: superAdmin.role,
+          title: superAdmin.title,
+          phone: superAdmin.phone,
+          status: superAdmin.status,
+        });
+      }
+    }
+  }, [team, currentUser.id, currentUser.name, currentUser.role, currentUser.title, currentUser.email]);
+
   const toggleTheme = useCallback(() => {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   }, []);
@@ -240,40 +298,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Quick switch role/user for testing and live demonstration
-  const switchUser = (roleOrEmail: string) => {
-    let targetUser: User | undefined;
-    if (roleOrEmail === 'super_admin') {
-      targetUser = INITIAL_USERS.find(u => u.role === 'super_admin');
-    } else if (roleOrEmail === 'admin') {
-      targetUser = INITIAL_USERS.find(u => u.role === 'admin');
-    } else {
-      targetUser = INITIAL_USERS.find(u => u.email === roleOrEmail || u.id === roleOrEmail);
+  const switchUser = (roleOrIdOrEmail: string) => {
+    let targetMember: TeamMember | undefined;
+
+    // 1. By ID in current team
+    targetMember = team.find(t => t.id === roleOrIdOrEmail);
+
+    // 2. By Email in current team
+    if (!targetMember) {
+      targetMember = team.find(t => t.email.toLowerCase() === roleOrIdOrEmail.toLowerCase());
     }
 
-    if (targetUser) {
-      setCurrentUser(targetUser);
-      // Log login switch
-      const newLog: AuditLog = {
-        id: `log_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        userId: targetUser.id,
-        userName: targetUser.name,
-        userRole: targetUser.role,
-        actionCategory: 'AUTH',
-        actionType: 'SWITCH_USER',
-        description: `Beralih sesi ke ${targetUser.name} (${targetUser.title} / ${targetUser.role === 'super_admin' ? 'Super Admin' : 'Admin'}).`,
-      };
-      setLogs(prev => [newLog, ...prev]);
-
-      // Call API
-      fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: targetUser.email }),
-      }).catch(() => {});
-
-      showToast(`Aktif sebagai ${targetUser.name} (${targetUser.title})`, 'info');
+    // 3. By Role in current team
+    if (!targetMember) {
+      if (roleOrIdOrEmail === 'super_admin') {
+        targetMember = team.find(t => t.role === 'super_admin');
+      } else if (roleOrIdOrEmail === 'admin') {
+        targetMember = team.find(t => t.role === 'admin') || team.find(t => t.role !== 'super_admin');
+      }
     }
+
+    // 4. Fallback to INITIAL_USERS or first member
+    const fallback = targetMember || team[0] || INITIAL_USERS[0];
+
+    const newUser: User = {
+      id: fallback.id,
+      name: fallback.name,
+      email: fallback.email,
+      role: fallback.role,
+      title: fallback.title,
+      phone: fallback.phone,
+      status: fallback.status,
+    };
+
+    setCurrentUser(newUser);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('biota_current_user', JSON.stringify(newUser));
+    }
+
+    // Log login switch
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      userId: newUser.id,
+      userName: newUser.name,
+      userRole: newUser.role,
+      actionCategory: 'AUTH',
+      actionType: 'SWITCH_USER',
+      description: `Beralih sesi ke ${newUser.name} (${newUser.title} / ${newUser.role === 'super_admin' ? 'Super Admin' : 'Admin'}).`,
+    };
+    setLogs(prev => [newLog, ...prev]);
+
+    // Call API
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: newUser.email }),
+    }).catch(() => {});
+
+    showToast(`Aktif sebagai ${newUser.name} (${newUser.title})`, 'info');
   };
 
   // DEAL ACTIONS
@@ -638,6 +722,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: deniedMsg };
     }
 
+    const memberToDelete = team.find(t => t.id === id);
+    if (!memberToDelete) return { success: false, error: 'Anggota tim tidak ditemukan' };
+
+    const superAdmins = team.filter(t => t.role === 'super_admin');
+    if (memberToDelete.role === 'super_admin' && superAdmins.length <= 1) {
+      const errMsg = 'Tidak dapat menghapus Super Admin terakhir sistem!';
+      showToast(errMsg, 'error');
+      return { success: false, error: errMsg };
+    }
+
     setTeam(prev => {
       const updated = prev.filter(t => t.id !== id);
       if (typeof window !== 'undefined') {
@@ -645,6 +739,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return updated;
     });
+
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      actionCategory: 'TEAM',
+      actionType: 'DELETE_TEAM',
+      description: `${currentUser.name} menghapus anggota tim: ${memberToDelete.name} (${memberToDelete.title})`,
+    };
+    setLogs(prev => [newLog, ...prev]);
 
     fetch(`/api/team/${id}`, {
       method: 'DELETE',
@@ -656,7 +762,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       body: JSON.stringify({ actor: currentUser }),
     }).catch(() => {});
 
-    showToast('Anggota tim berhasil dihapus', 'success');
+    showToast(`Anggota tim ${memberToDelete.name} berhasil dihapus`, 'success');
     return { success: true };
   };
 

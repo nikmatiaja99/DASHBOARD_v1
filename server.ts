@@ -155,7 +155,9 @@ async function startServer() {
   // Auth: Mock login / verify
   app.post('/api/auth/login', (req, res) => {
     const { email } = req.body;
-    const user = INITIAL_USERS.find(u => u.email.toLowerCase() === (email || '').toLowerCase()) || INITIAL_USERS[0];
+    const user = teamStore.find(u => u.email.toLowerCase() === (email || '').toLowerCase() || u.id === email) ||
+                 INITIAL_USERS.find(u => u.email.toLowerCase() === (email || '').toLowerCase() || u.id === email) ||
+                 teamStore[0] || INITIAL_USERS[0];
     
     addAuditLog(
       user.id,

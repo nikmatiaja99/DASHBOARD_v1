@@ -1,9 +1,9 @@
 @echo off
-title Push Proyek BIOTA Smarthome ke GitHub
+title Push Proyek BIOTA Smarthome ke DASHBOARD_v1 (nikmatiaja99)
 color 0b
 echo ================================================================
-echo   MENDORONG (PUSH) REPOSITORI KE GITHUB RESMI BIOTA SMARTHOME
-echo   Target: https://github.com/fitrohadhiansyah1-coder/biota-dashboardsales
+echo   PUSH PROYEK KE GITHUB RESMI BIOTA SMARTHOME
+echo   Target: https://github.com/nikmatiaja99/DASHBOARD_v1.git
 echo ================================================================
 echo.
 
@@ -13,22 +13,26 @@ if not exist %GIT_PATH% (
     set GIT_PATH=git
 )
 
-echo Menghubungkan ke GitHub...
+%GIT_PATH% remote set-url origin https://github.com/nikmatiaja99/DASHBOARD_v1.git
+
+echo Menghubungkan ke GitHub sebagai nikmatiaja99...
+echo (Jika muncul jendela browser, silakan klik 'Sign in with browser' / Authorize)
+echo.
+
 %GIT_PATH% push -u origin main
 
 echo.
 if %ERRORLEVEL% EQU 0 (
     echo ================================================================
-    echo [BERHASIL!] Seluruh file proyek sudah sukses di-push ke GitHub!
-    echo Silakan buka: https://github.com/fitrohadhiansyah1-coder/biota-dashboardsales
+    echo [BERHASIL!] Seluruh file proyek sudah sukses di-push ke:
+    echo https://github.com/nikmatiaja99/DASHBOARD_v1
     echo ================================================================
 ) else (
     echo ================================================================
     echo [CATATAN OTENTIKASI GITHUB]
     echo Jika muncul permintaan login:
-    echo 1. Username: fitrohadhiansyah1-coder
-    echo 2. Password: Gunakan GitHub Personal Access Token (bukan password biasa).
-    echo    Buat token di: https://github.com/settings/tokens (pilih scope 'repo')
+    echo 1. Pilih 'Sign in with your browser' (karena browser Anda sudah login nikmatiaja99)
+    echo 2. Atau masukkan Token GitHub jika diminta.
     echo ================================================================
 )
 echo.

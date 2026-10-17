@@ -427,6 +427,7 @@ async function startServer() {
     };
 
     teamStore.push(newMember);
+    saveDatabase();
 
     if (actor) {
       addAuditLog(
@@ -462,6 +463,7 @@ async function startServer() {
 
     const updated = { ...teamStore[index], ...memberUpdates };
     teamStore[index] = updated;
+    saveDatabase();
 
     if (actor) {
       addAuditLog(
@@ -496,6 +498,7 @@ async function startServer() {
     }
 
     teamStore = teamStore.filter(t => t.id !== id);
+    saveDatabase();
 
     addAuditLog(
       'super_admin',

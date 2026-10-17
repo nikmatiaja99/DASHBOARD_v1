@@ -91,7 +91,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return INITIAL_CUSTOMERS;
   });
 
-  const [team, setTeam] = useState<TeamMember[]>(INITIAL_TEAM);
+  const [team, setTeam] = useState<TeamMember[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('biota_team');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        console.error('Error loading team from localStorage', e);
+      }
+    }
+    return INITIAL_TEAM;
+  });
   
   const [target, setTarget] = useState<SalesTargetSetting>(() => {
     if (typeof window !== 'undefined') {
@@ -160,6 +175,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      localStorage.setItem('biota_team', JSON.stringify(team));
+    }
+  }, [team]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('biota_target', JSON.stringify(target));
     }
   }, [target]);
@@ -183,30 +204,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync with backend on initial mount if API is reachable
   useEffect(() => {
-    fetch('/api/deals')
-      .then(res => res.json())
-      .then(data => { if (data.success && Array.isArray(data.data)) setDeals(data.data); })
-      .catch(() => {});
+    const fetchSafe = async (url: string) => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const ct = res.headers.get('content-type');
+        if (!ct || !ct.includes('application/json')) return null;
+        return await res.json();
+      } catch {
+        return null;
+      }
+    };
 
-    fetch('/api/customers')
-      .then(res => res.json())
-      .then(data => { if (data.success && Array.isArray(data.data)) setCustomers(data.data); })
-      .catch(() => {});
+    fetchSafe('/api/deals').then(data => {
+      if (data?.success && Array.isArray(data.data)) setDeals(data.data);
+    });
 
-    fetch('/api/team')
-      .then(res => res.json())
-      .then(data => { if (data.success && Array.isArray(data.data)) setTeam(data.data); })
-      .catch(() => {});
+    fetchSafe('/api/customers').then(data => {
+      if (data?.success && Array.isArray(data.data)) setCustomers(data.data);
+    });
 
-    fetch('/api/settings/target')
-      .then(res => res.json())
-      .then(data => { if (data.success && data.data) setTarget(data.data); })
-      .catch(() => {});
+    fetchSafe('/api/team').then(data => {
+      if (data?.success && Array.isArray(data.data) && data.data.length > 0) {
+        setTeam(data.data);
+      }
+    });
 
-    fetch('/api/logs')
-      .then(res => res.json())
-      .then(data => { if (data.success && Array.isArray(data.data)) setLogs(data.data); })
-      .catch(() => {});
+    fetchSafe('/api/settings/target').then(data => {
+      if (data?.success && data.data) setTarget(data.data);
+    });
+
+    fetchSafe('/api/logs').then(data => {
+      if (data?.success && Array.isArray(data.data)) setLogs(data.data);
+    });
   }, []);
 
   // Quick switch role/user for testing and live demonstration
@@ -527,41 +557,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: deniedMsg };
     }
 
-    try {
-      const res = await fetch('/api/team', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': currentUser.role,
-        },
-        body: JSON.stringify({ member: memberData, actor: currentUser }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        const errMsg = data.errors ? Object.values(data.errors)[0] as string : data.message || 'Gagal menambah tim';
-        showToast(errMsg, 'error');
-        return { success: false, error: errMsg };
-      }
+    const newMember: TeamMember = {
+      id: `user_${Date.now()}`,
+      name: memberData.name?.trim() || '',
+      email: memberData.email?.trim() || '',
+      role: memberData.role || 'admin',
+      title: memberData.title || (memberData.role === 'super_admin' ? 'Senior Sales Executive' : 'Account Executive'),
+      phone: memberData.phone?.trim() || '-',
+      status: memberData.status || 'active',
+      individualTarget: Number(memberData.individualTarget) || 500_000_000,
+      joinedDate: new Date().toISOString().split('T')[0],
+    };
 
-      setTeam(prev => [...prev, data.data]);
-      showToast(`Anggota tim ${data.data.name} berhasil ditambahkan`, 'success');
-      return { success: true };
-    } catch {
-      const newMember: TeamMember = {
-        id: `user_${Date.now()}`,
-        name: memberData.name || '',
-        email: memberData.email || '',
-        role: memberData.role || 'admin',
-        title: memberData.title || (memberData.role === 'super_admin' ? 'Senior Sales Executive' : 'Account Executive'),
-        phone: memberData.phone || '-',
-        status: memberData.status || 'active',
-        individualTarget: Number(memberData.individualTarget) || 500_000_000,
-        joinedDate: new Date().toISOString().split('T')[0],
-      };
-      setTeam(prev => [...prev, newMember]);
-      showToast(`Anggota tim ${newMember.name} ditambahkan`, 'success');
-      return { success: true };
-    }
+    setTeam(prev => {
+      const updated = [...prev, newMember];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('biota_team', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      actionCategory: 'TEAM',
+      actionType: 'CREATE_TEAM',
+      description: `${currentUser.name} menambahkan anggota tim baru: ${newMember.name} (${newMember.title})`,
+    };
+    setLogs(prev => [newLog, ...prev]);
+
+    // Async attempt to persist to backend API
+    fetch('/api/team', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-role': currentUser.role,
+      },
+      body: JSON.stringify({ member: memberData, actor: currentUser }),
+    }).catch(() => {});
+
+    showToast(`Anggota tim ${newMember.name} berhasil ditambahkan`, 'success');
+    return { success: true };
   };
 
   const updateTeamMember = async (id: string, updates: Partial<TeamMember>): Promise<{ success: boolean; error?: string }> => {
@@ -571,29 +610,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: deniedMsg };
     }
 
-    try {
-      const res = await fetch(`/api/team/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': currentUser.role,
-        },
-        body: JSON.stringify({ memberUpdates: updates, actor: currentUser }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        showToast(data.message || 'Gagal update status tim', 'error');
-        return { success: false, error: data.message };
+    setTeam(prev => {
+      const updated = prev.map(t => (t.id === id ? { ...t, ...updates } : t));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('biota_team', JSON.stringify(updated));
       }
+      return updated;
+    });
 
-      setTeam(prev => prev.map(t => (t.id === id ? data.data : t)));
-      showToast('Status anggota tim diperbarui', 'success');
-      return { success: true };
-    } catch {
-      setTeam(prev => prev.map(t => (t.id === id ? { ...t, ...updates } : t)));
-      showToast('Data tim diperbarui', 'success');
-      return { success: true };
-    }
+    fetch(`/api/team/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-role': currentUser.role,
+      },
+      body: JSON.stringify({ memberUpdates: updates, actor: currentUser }),
+    }).catch(() => {});
+
+    showToast('Status anggota tim diperbarui', 'success');
+    return { success: true };
   };
 
   const deleteTeamMember = async (id: string): Promise<{ success: boolean; error?: string }> => {
@@ -603,30 +638,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: deniedMsg };
     }
 
-    try {
-      const res = await fetch(`/api/team/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': currentUser.role,
-          'x-user-name': currentUser.name,
-        },
-        body: JSON.stringify({ actor: currentUser }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        showToast(data.message || 'Gagal menghapus anggota tim', 'error');
-        return { success: false, error: data.message };
+    setTeam(prev => {
+      const updated = prev.filter(t => t.id !== id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('biota_team', JSON.stringify(updated));
       }
+      return updated;
+    });
 
-      setTeam(prev => prev.filter(t => t.id !== id));
-      showToast('Anggota tim berhasil dihapus', 'success');
-      return { success: true };
-    } catch {
-      setTeam(prev => prev.filter(t => t.id !== id));
-      showToast('Anggota tim dihapus', 'success');
-      return { success: true };
-    }
+    fetch(`/api/team/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-role': currentUser.role,
+        'x-user-name': currentUser.name,
+      },
+      body: JSON.stringify({ actor: currentUser }),
+    }).catch(() => {});
+
+    showToast('Anggota tim berhasil dihapus', 'success');
+    return { success: true };
   };
 
   // TARGET ACTION (Super Admin only)

@@ -104,29 +104,58 @@ export function calculateTargetPerformance(wonTotal: number, targetAmount: numbe
 }
 
 /**
- * Filter deals by period
+ * Filter deals by period (lightweight, robust, and timezone-safe)
+ * Retains active ongoing opportunities (Lead In, Follow Up, Proposal) in month/quarter views
+ * and filters closed deals (Won, Lost) by their resolution period.
  */
-export function filterDealsByPeriod(deals: Deal[], period: FilterPeriod, referenceDate: Date = new Date('2026-10-16T12:00:00Z')): Deal[] {
+export function filterDealsByPeriod(
+  deals: Deal[],
+  period: FilterPeriod = 'all',
+  referenceDate: Date = new Date()
+): Deal[] {
+  if (!deals || deals.length === 0) return [];
   if (period === 'all') return deals;
 
-  const refTime = referenceDate.getTime();
+  const now = referenceDate instanceof Date && !isNaN(referenceDate.getTime()) ? referenceDate : new Date();
   const ONE_DAY = 24 * 60 * 60 * 1000;
 
   return deals.filter(deal => {
-    const dealDate = new Date(deal.createdAt).getTime();
-    const diffDays = (refTime - dealDate) / ONE_DAY;
+    // If deal is in active pipeline stage, it represents an active ongoing opportunity
+    const isActiveStage = deal.stage === 'lead_in' || deal.stage === 'follow_up' || deal.stage === 'proposal';
+
+    const rawDate = deal.updatedAt || deal.createdAt;
+    const dealDate = rawDate ? new Date(rawDate) : now;
+    if (isNaN(dealDate.getTime())) return true;
+
+    // Difference in days from reference now (negative means slight clock skew into future, positive means past)
+    const diffDays = (now.getTime() - dealDate.getTime()) / ONE_DAY;
 
     switch (period) {
       case 'today':
-        return diffDays <= 1 && diffDays >= 0;
+        return (
+          dealDate.toDateString() === now.toDateString() ||
+          (diffDays >= -1 && diffDays <= 1)
+        );
       case 'week':
-        return diffDays <= 7 && diffDays >= 0;
+        return diffDays >= -1 && diffDays <= 7;
       case 'month':
-        return diffDays <= 31 && diffDays >= 0;
+        // Current calendar month, or within last 31 days, or active pipeline stage
+        return (
+          isActiveStage ||
+          (dealDate.getMonth() === now.getMonth() && dealDate.getFullYear() === now.getFullYear()) ||
+          (diffDays >= -1 && diffDays <= 31)
+        );
       case 'quarter':
-        return diffDays <= 92 && diffDays >= 0;
+        return (
+          isActiveStage ||
+          (diffDays >= -1 && diffDays <= 92)
+        );
       case 'year':
-        return diffDays <= 365 && diffDays >= 0;
+        return (
+          isActiveStage ||
+          dealDate.getFullYear() === now.getFullYear() ||
+          (diffDays >= -1 && diffDays <= 365)
+        );
       default:
         return true;
     }

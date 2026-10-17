@@ -12,6 +12,7 @@ import {
   calculateSalesPerformance,
   runSystemIntegrityCheck,
   generateCSVContent,
+  filterDealsByPeriod,
 } from './salesLogic.ts';
 import type { Deal, Customer, TeamMember, SalesTargetSetting, AuditLog } from '../types/index.ts';
 
@@ -243,3 +244,190 @@ test('generateCSVContent formats valid CSV string', () => {
   assert.ok(csv.includes('"Kode","Proyek","Nilai"'));
   assert.ok(csv.includes('"D-101","Smart Home Penthouse","250000000"'));
 });
+
+// =========================================================================
+// FORWARD AND REVERSE LOGIC UNIT TESTS (DEAL LIFECYCLE & SYNC INTEGRITY)
+// =========================================================================
+
+test('filterDealsByPeriod handles current and active deals correctly across periods', () => {
+  const now = new Date('2026-10-17T17:00:00.000Z');
+  
+  const testDeals: Deal[] = [
+    {
+      id: 'd_active_today',
+      code: 'D-201',
+      title: 'Smart Villa Bali',
+      customerId: 'c1',
+      customerName: 'PT Graha',
+      value: 1_500_000,
+      stage: 'proposal',
+      picId: 't1',
+      picName: 'Fitroh Adhiansyah',
+      createdAt: '2026-10-17T10:00:00.000Z',
+    },
+    {
+      id: 'd_old_active',
+      code: 'D-202',
+      title: 'Apartemen Bandung IoT',
+      customerId: 'c2',
+      customerName: 'Hendra',
+      value: 3_000_000,
+      stage: 'follow_up',
+      picId: 't2',
+      picName: 'Rian Pratama',
+      createdAt: '2026-08-01T10:00:00.000Z', // 2 months ago, but still active!
+    },
+    {
+      id: 'd_old_won',
+      code: 'D-203',
+      title: 'Closed Deal in August',
+      customerId: 'c1',
+      customerName: 'PT Graha',
+      value: 5_000_000,
+      stage: 'won',
+      picId: 't1',
+      picName: 'Fitroh Adhiansyah',
+      createdAt: '2026-08-15T10:00:00.000Z',
+    },
+  ];
+
+  // 'all' returns all 3 deals
+  const allResult = filterDealsByPeriod(testDeals, 'all', now);
+  assert.equal(allResult.length, 3);
+
+  // 'month' returns today's proposal AND old active follow_up, but NOT old August won deal
+  const monthResult = filterDealsByPeriod(testDeals, 'month', now);
+  assert.equal(monthResult.length, 2);
+  assert.ok(monthResult.some(d => d.id === 'd_active_today'));
+  assert.ok(monthResult.some(d => d.id === 'd_old_active'));
+  assert.ok(!monthResult.some(d => d.id === 'd_old_won'));
+
+  // 'today' returns today's deal
+  const todayResult = filterDealsByPeriod(testDeals, 'today', now);
+  assert.equal(todayResult.length, 1);
+  assert.equal(todayResult[0].id, 'd_active_today');
+});
+
+test('Deal State Transitions: Forward and REVERSE logic verification', () => {
+  // Step 0: Starting with empty state
+  let currentDeals: Deal[] = [];
+  let s0 = calculatePipelineSummary(currentDeals);
+  assert.equal(s0.totalDealsCount, 0);
+  assert.equal(s0.allDealsValue, 0);
+  assert.equal(s0.totalActiveValue, 0);
+  assert.equal(s0.wonTotal, 0);
+
+  // Step 1 [FORWARD]: Add Deal in Proposal stage (Rp 1.500.000)
+  const deal1: Deal = {
+    id: 'd_test_1',
+    code: 'D-501',
+    title: 'Smart Office Sudirman',
+    customerId: 'c1',
+    customerName: 'PT Graha Mahardika',
+    value: 1_500_000,
+    stage: 'proposal',
+    picId: 't1',
+    picName: 'Fitroh Adhiansyah',
+    createdAt: '2026-10-17T12:00:00Z',
+  };
+  currentDeals = [deal1];
+
+  let s1 = calculatePipelineSummary(currentDeals);
+  assert.equal(s1.totalDealsCount, 1);
+  assert.equal(s1.allDealsValue, 1_500_000);
+  assert.equal(s1.summary.proposal.count, 1);
+  assert.equal(s1.summary.proposal.totalValue, 1_500_000);
+  assert.equal(s1.totalActiveValue, 1_500_000); // Proposal is active pipeline
+  assert.equal(s1.wonTotal, 0);
+  assert.equal(s1.wonCount, 0);
+
+  let targetPerf1 = calculateTargetPerformance(s1.wonTotal, 10_000_000); // Target Rp 10 Jt
+  assert.equal(targetPerf1.percentage, 0);
+  assert.equal(targetPerf1.remaining, 10_000_000);
+  assert.equal(targetPerf1.isTargetAchieved, false);
+
+  // Step 2 [FORWARD]: Move deal from Proposal -> Won (Closing)
+  currentDeals = currentDeals.map(d => (d.id === deal1.id ? { ...d, stage: 'won' as const } : d));
+  let s2 = calculatePipelineSummary(currentDeals);
+  assert.equal(s2.summary.proposal.count, 0, 'Proposal count must reverse to 0');
+  assert.equal(s2.summary.proposal.totalValue, 0, 'Proposal value must reverse to 0');
+  assert.equal(s2.totalActiveValue, 0, 'Active pipeline value must reverse to 0 when won');
+  assert.equal(s2.wonCount, 1, 'Won count increases to 1');
+  assert.equal(s2.wonTotal, 1_500_000, 'Won total is Rp 1.5 Jt');
+
+  let targetPerf2 = calculateTargetPerformance(s2.wonTotal, 10_000_000);
+  assert.equal(targetPerf2.percentage, 15, 'Target achievement is 15%');
+  assert.equal(targetPerf2.remaining, 8_500_000, 'Remaining target is 8.5 Jt');
+
+  // Step 3 [REVERSE]: Move deal BACK from Won -> Proposal (Undo Closing)
+  currentDeals = currentDeals.map(d => (d.id === deal1.id ? { ...d, stage: 'proposal' as const } : d));
+  let s3 = calculatePipelineSummary(currentDeals);
+  assert.equal(s3.wonCount, 0, 'Won count must reverse back to 0');
+  assert.equal(s3.wonTotal, 0, 'Won total must reverse back to 0');
+  assert.equal(s3.summary.proposal.count, 1, 'Proposal count restored to 1');
+  assert.equal(s3.summary.proposal.totalValue, 1_500_000, 'Proposal value restored to Rp 1.5 Jt');
+  assert.equal(s3.totalActiveValue, 1_500_000, 'Active pipeline restored to Rp 1.5 Jt');
+
+  let targetPerf3 = calculateTargetPerformance(s3.wonTotal, 10_000_000);
+  assert.equal(targetPerf3.percentage, 0, 'Target percentage restored back to 0%');
+  assert.equal(targetPerf3.remaining, 10_000_000, 'Remaining target restored back to 10 Jt');
+
+  // Step 4 [FORWARD]: Move deal to Lost (with reason)
+  currentDeals = currentDeals.map(d =>
+    d.id === deal1.id
+      ? { ...d, stage: 'lost' as const, lostReason: 'Kompetitor harga lebih murah' }
+      : d
+  );
+  let s4 = calculatePipelineSummary(currentDeals);
+  assert.equal(s4.summary.proposal.count, 0);
+  assert.equal(s4.totalActiveValue, 0);
+  assert.equal(s4.summary.lost.count, 1);
+  assert.equal(s4.summary.lost.totalValue, 1_500_000);
+  let lostBreakdown4 = calculateLostReasonsBreakdown(currentDeals);
+  assert.equal(lostBreakdown4.length, 1);
+  assert.equal(lostBreakdown4[0].reason, 'Kompetitor harga lebih murah');
+
+  // Step 5 [REVERSE]: Move deal BACK from Lost -> Follow Up (Revive Deal)
+  currentDeals = currentDeals.map(d => {
+    if (d.id !== deal1.id) return d;
+    const rev = { ...d, stage: 'follow_up' as const };
+    delete rev.lostReason;
+    return rev;
+  });
+  let s5 = calculatePipelineSummary(currentDeals);
+  assert.equal(s5.summary.lost.count, 0, 'Lost count reverses to 0');
+  assert.equal(s5.summary.lost.totalValue, 0, 'Lost value reverses to 0');
+  assert.equal(s5.summary.follow_up.count, 1, 'Follow Up count is 1');
+  assert.equal(s5.summary.follow_up.totalValue, 1_500_000, 'Follow Up value is 1.5 Jt');
+  assert.equal(s5.totalActiveValue, 1_500_000, 'Active pipeline restored to 1.5 Jt');
+  let lostBreakdown5 = calculateLostReasonsBreakdown(currentDeals);
+  assert.equal(lostBreakdown5.length, 0, 'Lost breakdown must be clean empty');
+
+  // Step 6 [FORWARD & REVERSE]: Update Deal Value from 1.5 Jt to 5 Jt, then reverse back
+  // Value update forward
+  currentDeals = currentDeals.map(d => (d.id === deal1.id ? { ...d, value: 5_000_000 } : d));
+  let s6 = calculatePipelineSummary(currentDeals);
+  assert.equal(s6.summary.follow_up.totalValue, 5_000_000);
+  assert.equal(s6.totalActiveValue, 5_000_000);
+  assert.equal(s6.allDealsValue, 5_000_000);
+
+  // Value update reverse
+  currentDeals = currentDeals.map(d => (d.id === deal1.id ? { ...d, value: 1_500_000 } : d));
+  let s6Rev = calculatePipelineSummary(currentDeals);
+  assert.equal(s6Rev.summary.follow_up.totalValue, 1_500_000);
+  assert.equal(s6Rev.totalActiveValue, 1_500_000);
+  assert.equal(s6Rev.allDealsValue, 1_500_000);
+
+  // Step 7 [FULL REVERSE]: Delete Deal
+  currentDeals = currentDeals.filter(d => d.id !== deal1.id);
+  let s7 = calculatePipelineSummary(currentDeals);
+  assert.equal(s7.totalDealsCount, 0, 'Total deals count returns to 0');
+  assert.equal(s7.allDealsValue, 0, 'All deals value returns to 0');
+  assert.equal(s7.totalActiveValue, 0, 'Active pipeline value returns to 0');
+  assert.equal(s7.summary.lead_in.count, 0);
+  assert.equal(s7.summary.follow_up.count, 0);
+  assert.equal(s7.summary.proposal.count, 0);
+  assert.equal(s7.summary.won.count, 0);
+  assert.equal(s7.summary.lost.count, 0);
+});
+

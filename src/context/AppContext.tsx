@@ -434,7 +434,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('Data deal berhasil diperbarui', 'success');
       return { success: true };
     } catch {
-      setDeals(prev => prev.map(d => (d.id === id ? { ...d, ...updates, updatedAt: new Date().toISOString() } : d)));
+      setDeals(prev => prev.map(d => {
+        if (d.id !== id) return d;
+        const updated: Deal = { ...d, ...updates, updatedAt: new Date().toISOString() };
+        if (updated.stage !== 'lost') {
+          delete updated.lostReason;
+          delete updated.lostNotes;
+        }
+        return updated;
+      }));
       showToast('Data deal diperbarui', 'success');
       return { success: true };
     }

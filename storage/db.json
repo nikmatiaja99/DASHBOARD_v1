@@ -35,6 +35,166 @@
   },
   "logs": [
     {
+      "id": "log_1792232961859_oczn",
+      "timestamp": "2026-10-17T10:29:21.859Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "DELETE_DEAL",
+      "description": "Fitroh Adhiansyah menghapus deal: D-101 - Smart Villa Canggu IoT"
+    },
+    {
+      "id": "log_1792232961815_2gtn",
+      "timestamp": "2026-10-17T10:29:21.815Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "UPDATE_STAGE",
+      "description": "Fitroh Adhiansyah memindahkan deal D-101 ke tahapan FOLLOW_UP",
+      "details": {
+        "prevStage": "lost",
+        "newStage": "follow_up"
+      }
+    },
+    {
+      "id": "log_1792232961804_rxwi",
+      "timestamp": "2026-10-17T10:29:21.804Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "UPDATE_STAGE",
+      "description": "Fitroh Adhiansyah memindahkan deal D-101 ke LOST dengan alasan: \"Kompetitor harga lebih murah\"",
+      "details": {
+        "prevStage": "proposal",
+        "newStage": "lost"
+      }
+    },
+    {
+      "id": "log_1792232961792_8ln7",
+      "timestamp": "2026-10-17T10:29:21.792Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "UPDATE_STAGE",
+      "description": "Fitroh Adhiansyah memindahkan deal D-101 ke tahapan PROPOSAL",
+      "details": {
+        "prevStage": "won",
+        "newStage": "proposal"
+      }
+    },
+    {
+      "id": "log_1792232961777_w8lu",
+      "timestamp": "2026-10-17T10:29:21.777Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "UPDATE_STAGE",
+      "description": "Fitroh Adhiansyah memindahkan deal D-101 ke tahapan WON",
+      "details": {
+        "prevStage": "proposal",
+        "newStage": "won"
+      }
+    },
+    {
+      "id": "log_1792232961752_mies",
+      "timestamp": "2026-10-17T10:29:21.752Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "CREATE_DEAL",
+      "description": "Fitroh Adhiansyah menambahkan deal baru: D-101 - Smart Villa Canggu IoT",
+      "details": {
+        "dealId": "deal_1792232961752",
+        "value": 1500000
+      }
+    },
+    {
+      "id": "log_1792232849053_p7vu",
+      "timestamp": "2026-10-17T10:27:29.053Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "DELETE_DEAL",
+      "description": "Fitroh Adhiansyah menghapus deal: D-101 - Smart Villa Canggu IoT"
+    },
+    {
+      "id": "log_1792232849018_3pfl",
+      "timestamp": "2026-10-17T10:27:29.018Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "UPDATE_STAGE",
+      "description": "Fitroh Adhiansyah memindahkan deal D-101 ke tahapan FOLLOW_UP",
+      "details": {
+        "prevStage": "lost",
+        "newStage": "follow_up"
+      }
+    },
+    {
+      "id": "log_1792232849007_b89e",
+      "timestamp": "2026-10-17T10:27:29.007Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "UPDATE_STAGE",
+      "description": "Fitroh Adhiansyah memindahkan deal D-101 ke LOST dengan alasan: \"Kompetitor harga lebih murah\"",
+      "details": {
+        "prevStage": "proposal",
+        "newStage": "lost"
+      }
+    },
+    {
+      "id": "log_1792232849000_5ajr",
+      "timestamp": "2026-10-17T10:27:29.000Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "UPDATE_STAGE",
+      "description": "Fitroh Adhiansyah memindahkan deal D-101 ke tahapan PROPOSAL",
+      "details": {
+        "prevStage": "won",
+        "newStage": "proposal"
+      }
+    },
+    {
+      "id": "log_1792232848989_sfxl",
+      "timestamp": "2026-10-17T10:27:28.989Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "UPDATE_STAGE",
+      "description": "Fitroh Adhiansyah memindahkan deal D-101 ke tahapan WON",
+      "details": {
+        "prevStage": "proposal",
+        "newStage": "won"
+      }
+    },
+    {
+      "id": "log_1792232848968_p5pq",
+      "timestamp": "2026-10-17T10:27:28.968Z",
+      "userId": "user_super_admin_1",
+      "userName": "Fitroh Adhiansyah",
+      "userRole": "super_admin",
+      "actionCategory": "DEAL",
+      "actionType": "CREATE_DEAL",
+      "description": "Fitroh Adhiansyah menambahkan deal baru: D-101 - Smart Villa Canggu IoT",
+      "details": {
+        "dealId": "deal_1792232848968",
+        "value": 1500000
+      }
+    },
+    {
       "id": "log_init",
       "timestamp": "2026-10-17T01:10:00.000Z",
       "userId": "user_super_admin_1",
@@ -45,5 +205,5 @@
       "description": "Sistem BIOTA Smarthome Sales Project Dashboard siap digunakan."
     }
   ],
-  "lastSaved": "2026-10-17T01:10:00.000Z"
+  "lastSaved": "2026-10-17T10:29:21.859Z"
 }

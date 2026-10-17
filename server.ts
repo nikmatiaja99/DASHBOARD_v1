@@ -245,7 +245,14 @@ async function startServer() {
       });
     }
 
+    // Reverse logic: If moving away from 'lost', cleanly remove lostReason and lostNotes
+    if (updatedDeal.stage !== 'lost') {
+      delete updatedDeal.lostReason;
+      delete updatedDeal.lostNotes;
+    }
+
     dealsStore[index] = updatedDeal;
+    saveDatabase();
 
     if (actor) {
       const isStageChange = prevDeal.stage !== updatedDeal.stage;
@@ -279,6 +286,7 @@ async function startServer() {
     }
 
     dealsStore = dealsStore.filter(d => d.id !== id);
+    saveDatabase();
 
     if (actor) {
       addAuditLog(
